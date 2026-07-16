@@ -6,10 +6,18 @@ public struct TranscriptionResult: Decodable, Sendable {
         public let start: Double
         public let end: Double
         public let speaker: String?
+
+        public init(text: String, start: Double, end: Double, speaker: String?) {
+            self.text = text; self.start = start; self.end = end; self.speaker = speaker
+        }
     }
     public let text: String
     public let language: String?
     public let segments: [APISegment]?
+
+    public init(text: String, language: String?, segments: [APISegment]?) {
+        self.text = text; self.language = language; self.segments = segments
+    }
 }
 
 public enum APIError: LocalizedError {
