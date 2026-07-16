@@ -15,11 +15,11 @@ struct TranscriptionDetailView: View {
     @State private var scrollTarget: Int?
     @FocusState private var findFocused: Bool
 
-    static let speakerColors: [Color] = [.blue, .orange, .green, .purple, .pink, .teal, .red, .indigo]
+    @State private var segments: [Segment] = []
+    @State private var ranges: [(start: TimeInterval, end: TimeInterval)] = []
+    @State private var speakers: [String] = []
 
-    var speakers: [String] {
-        Array(Set(transcription.orderedSegments.map(\.speaker))).sorted()
-    }
+    static let speakerColors: [Color] = [.blue, .orange, .green, .purple, .pink, .teal, .red, .indigo]
 
     func color(for speaker: String) -> Color {
         let i = speakers.firstIndex(of: speaker) ?? 0
@@ -27,14 +27,13 @@ struct TranscriptionDetailView: View {
     }
 
     var currentSegmentIndex: Int? {
-        let ranges = transcription.orderedSegments.map { (start: $0.start, end: $0.end) }
-        return SegmentLocator.index(at: player.currentTime, in: ranges)
+        SegmentLocator.index(at: player.currentTime, in: ranges)
     }
 
     var matchIndices: [Int] {
         guard !findQuery.isEmpty else { return [] }
         let q = findQuery.localizedLowercase
-        return transcription.orderedSegments.enumerated()
+        return segments.enumerated()
             .filter { $0.element.text.localizedLowercase.contains(q) }
             .map(\.offset)
     }
@@ -44,7 +43,7 @@ struct TranscriptionDetailView: View {
         findCursor = ((findCursor + delta) % matchIndices.count + matchIndices.count) % matchIndices.count
         let idx = matchIndices[findCursor]
         scrollTarget = idx
-        if audioAvailable { player.seek(to: transcription.orderedSegments[idx].start) }
+        if audioAvailable { player.seek(to: segments[idx].start) }
     }
 
     func export(ext: String, content: String) {
@@ -72,6 +71,7 @@ struct TranscriptionDetailView: View {
         .navigationTitle(transcription.fileName)
         .onAppear { loadAudio() }
         .onChange(of: transcription.persistentModelID) { loadAudio() }
+        .onChange(of: transcription.status) { loadAudio() }
         .onDisappear { player.unload() }
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
@@ -115,16 +115,18 @@ struct TranscriptionDetailView: View {
                 Divider()
             }
             ScrollViewReader { proxy in
+                let current = currentSegmentIndex
+                let findMatchSet = Set(matchIndices)
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 10) {
-                        ForEach(Array(transcription.orderedSegments.enumerated()), id: \.offset) { i, segment in
+                        ForEach(Array(segments.enumerated()), id: \.offset) { i, segment in
                             SegmentRow(
                                 segment: segment,
                                 name: transcription.displayName(for: segment.speaker),
                                 color: color(for: segment.speaker),
-                                isCurrent: i == currentSegmentIndex,
+                                isCurrent: i == current,
                                 highlight: findQuery,
-                                isFindMatch: matchIndices.contains(i),
+                                isFindMatch: findMatchSet.contains(i),
                                 onRename: { newName in
                                     transcription.speakerNames[segment.speaker] = newName
                                     try? context.save()
@@ -168,6 +170,12 @@ struct TranscriptionDetailView: View {
     }
 
     func loadAudio() {
+        segments = transcription.orderedSegments
+        ranges = segments.map { (start: $0.start, end: $0.end) }
+        speakers = Array(Set(segments.map(\.speaker))).sorted()
+        findQuery = ""
+        showFind = false
+        findCursor = 0
         player.unload()
         if let url = transcription.resolvedFileURL() {
             audioAvailable = true
