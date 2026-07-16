@@ -8,5 +8,6 @@ let package = Package(
         .target(name: "VoxtralCore"),
         .executableTarget(name: "Voxtral", dependencies: ["VoxtralCore"]),
         .testTarget(name: "VoxtralCoreTests", dependencies: ["VoxtralCore"]),
-    ]
+    ],
+    swiftLanguageModes: [.v5]
 )
