@@ -7,6 +7,7 @@ import Observation
 final class PlayerController {
     private var player: AVPlayer?
     private var timeObserver: Any?
+    private var durationTask: Task<Void, Never>?
 
     var currentTime: TimeInterval = 0
     var isPlaying = false
@@ -20,9 +21,11 @@ final class PlayerController {
         let item = AVPlayerItem(url: url)
         let p = AVPlayer(playerItem: item)
         player = p
-        Task {
+        durationTask?.cancel()
+        durationTask = Task { [weak self] in
             if let d = try? await item.asset.load(.duration) {
-                duration = CMTimeGetSeconds(d).isFinite ? CMTimeGetSeconds(d) : 0
+                guard !Task.isCancelled else { return }
+                self?.duration = CMTimeGetSeconds(d).isFinite ? CMTimeGetSeconds(d) : 0
             }
         }
         timeObserver = p.addPeriodicTimeObserver(
@@ -31,11 +34,7 @@ final class PlayerController {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.currentTime = CMTimeGetSeconds(time)
-                if let p = self.player, p.timeControlStatus != .playing, self.isPlaying,
-                   p.currentItem?.isPlaybackLikelyToKeepUp == false {
-                    // buffering; keep state
-                }
-                if let item = p.currentItem, item.duration.isNumeric,
+                if let item = self.player?.currentItem, item.duration.isNumeric,
                    CMTimeGetSeconds(item.duration) - self.currentTime < 0.05 {
                     self.isPlaying = false
                 }
@@ -44,6 +43,8 @@ final class PlayerController {
     }
 
     func unload() {
+        durationTask?.cancel()
+        durationTask = nil
         if let obs = timeObserver { player?.removeTimeObserver(obs) }
         timeObserver = nil
         player?.pause()
