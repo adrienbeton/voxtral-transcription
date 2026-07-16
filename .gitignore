@@ -5,3 +5,5 @@ build/
 TemporaryDirectory.*/
 _Users_*.lock
 .claude/
+.DS_Store
+CLAUDE.md
