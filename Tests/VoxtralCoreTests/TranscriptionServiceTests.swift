@@ -101,4 +101,31 @@ final class TranscriptionServiceTests: XCTestCase {
         XCTAssertNil(t.errorMessage)
         XCTAssertEqual(t.orderedSegments.count, 1)
     }
+
+    @MainActor
+    func testRetryWithAudioTooLong() async throws {
+        let context = try makeContext()
+        let url = try makeAudioFile()
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        // Manually create a Transcription with a 4-hour duration
+        let bookmark = try url.bookmarkData()
+        let t = Transcription(fileName: url.lastPathComponent, fileBookmark: bookmark, duration: 4 * 3600)
+        context.insert(t)
+        try? context.save()
+
+        // Create a MockAPI that would set .done if called (to detect if it's called)
+        let ok = TranscriptionResult(text: "Hello", language: "en",
+                                     segments: [.init(text: "Hello", start: 0, end: 1, speaker: "speaker_0")])
+        let service = TranscriptionService(api: MockAPI(result: .success(ok)), context: context,
+                                           apiKeyProvider: { "sk-test" })
+
+        await service.retry(t)
+
+        // If the API was called, status would be .done. Since we want it to be .failed,
+        // we verify it's failed with the audioTooLong error.
+        XCTAssertEqual(t.status, .failed)
+        XCTAssertEqual(t.errorMessage, ServiceError.audioTooLong.errorDescription)
+    }
+
 }

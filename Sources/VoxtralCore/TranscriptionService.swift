@@ -5,11 +5,13 @@ import AVFoundation
 public enum ServiceError: LocalizedError {
     case missingAPIKey
     case missingFile
+    case audioTooLong
 
     public var errorDescription: String? {
         switch self {
         case .missingAPIKey: return "Clé API Mistral manquante — ajoute-la dans les Réglages."
         case .missingFile: return "Fichier audio introuvable."
+        case .audioTooLong: return "Fichier trop long : l'API supporte 3 h d'audio maximum."
         }
     }
 }
@@ -31,6 +33,8 @@ public final class TranscriptionService {
     let context: ModelContext
     let apiKeyProvider: () -> String?
 
+    static let maxDuration: TimeInterval = 3 * 3600
+
     public init(api: TranscriptionAPI = MistralClient(),
                 context: ModelContext,
                 apiKeyProvider: @escaping () -> String? = { KeychainStore.apiKey() }) {
@@ -46,6 +50,12 @@ public final class TranscriptionService {
         let t = Transcription(fileName: url.lastPathComponent, fileBookmark: bookmark, duration: duration)
         context.insert(t)
         try? context.save()
+        if duration > Self.maxDuration {
+            t.status = .failed
+            t.errorMessage = ServiceError.audioTooLong.errorDescription
+            try? context.save()
+            return t
+        }
         await run(t, fileURL: url)
         return t
     }
@@ -54,6 +64,12 @@ public final class TranscriptionService {
         guard let url = t.resolvedFileURL() else {
             t.status = .failed
             t.errorMessage = ServiceError.missingFile.errorDescription
+            try? context.save()
+            return
+        }
+        if t.duration > Self.maxDuration {
+            t.status = .failed
+            t.errorMessage = ServiceError.audioTooLong.errorDescription
             try? context.save()
             return
         }
