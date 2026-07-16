@@ -48,8 +48,3 @@ struct SidebarView: View {
         }
     }
 }
-
-struct TranscriptionDetailView: View {
-    let transcription: Transcription
-    var body: some View { Text(transcription.fileName) }
-}
