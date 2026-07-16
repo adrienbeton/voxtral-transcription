@@ -130,12 +130,16 @@ struct TranscriptionDetailView: View {
                                 onRename: { newName in
                                     transcription.speakerNames[segment.speaker] = newName
                                     try? context.save()
+                                },
+                                onSeek: {
+                                    if audioAvailable { player.seek(to: segment.start) }
+                                },
+                                onTextEdited: {
+                                    transcription.fullText = transcription.orderedSegments.map(\.text).joined(separator: " ")
+                                    try? context.save()
                                 }
                             )
                             .id(i)
-                            .onTapGesture {
-                                if audioAvailable { player.seek(to: segment.start) }
-                            }
                         }
                     }
                     .padding(16)
@@ -157,9 +161,12 @@ struct TranscriptionDetailView: View {
             if audioAvailable {
                 PlayerBarView(player: player)
             } else {
-                Label("Fichier audio introuvable — lecture désactivée", systemImage: "speaker.slash")
-                    .foregroundStyle(.secondary)
-                    .padding(10)
+                HStack {
+                    Label("Fichier audio introuvable — lecture désactivée", systemImage: "speaker.slash")
+                        .foregroundStyle(.secondary)
+                    Button("Relier…") { relinkAudio() }
+                }
+                .padding(10)
             }
         }
         .background {
@@ -167,6 +174,17 @@ struct TranscriptionDetailView: View {
                 .keyboardShortcut("f", modifiers: .command)
                 .hidden()
         }
+    }
+
+    func relinkAudio() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = ContentView.audioTypes
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        transcription.fileBookmark = (try? url.bookmarkData()) ?? Data()
+        try? context.save()
+        loadAudio()
     }
 
     func loadAudio() {
@@ -194,9 +212,31 @@ struct SegmentRow: View {
     let highlight: String
     let isFindMatch: Bool
     let onRename: (String) -> Void
+    let onSeek: () -> Void
+    let onTextEdited: () -> Void
 
     @State private var showRename = false
     @State private var draft = ""
+    @State private var isEditingText = false
+    @State private var textDraft = ""
+    @FocusState private var textFocused: Bool
+
+    func startEditing() {
+        textDraft = segment.text
+        isEditingText = true
+        textFocused = true
+    }
+
+    func commitEdit() {
+        guard isEditingText else { return }
+        segment.text = textDraft
+        onTextEdited()
+        isEditingText = false
+    }
+
+    func cancelEdit() {
+        isEditingText = false
+    }
 
     var highlightedText: AttributedString {
         var attr = AttributedString(segment.text)
@@ -236,7 +276,18 @@ struct SegmentRow: View {
                     Text(ExportFormatter.timestamp(segment.start))
                         .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
                 }
-                Text(highlightedText)
+                if isEditingText {
+                    TextField("", text: $textDraft, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .focused($textFocused)
+                        .onSubmit { commitEdit() }
+                        .onKeyPress(.escape) { cancelEdit(); return .handled }
+                        .onChange(of: textFocused) { _, focused in
+                            if !focused { commitEdit() }
+                        }
+                } else {
+                    Text(highlightedText)
+                }
             }
             Spacer(minLength: 0)
         }
@@ -246,6 +297,8 @@ struct SegmentRow: View {
         .overlay(RoundedRectangle(cornerRadius: 6)
             .stroke(isFindMatch ? Color.yellow.opacity(0.8) : .clear, lineWidth: 1))
         .contentShape(Rectangle())
+        .onTapGesture(count: 2) { startEditing() }
+        .onTapGesture(count: 1) { if !isEditingText { onSeek() } }
     }
 }
 

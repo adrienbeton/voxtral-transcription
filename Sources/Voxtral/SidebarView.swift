@@ -7,6 +7,8 @@ struct SidebarView: View {
     let searchText: String
     @Environment(\.modelContext) private var context
     @Query(sort: \Transcription.createdAt, order: .reverse) private var transcriptions: [Transcription]
+    @State private var renameTarget: Transcription?
+    @State private var renameDraft = ""
 
     var filtered: [Transcription] {
         guard !searchText.isEmpty else { return transcriptions }
@@ -30,6 +32,10 @@ struct SidebarView: View {
             }
             .tag(t)
             .contextMenu {
+                Button("Renommer…") {
+                    renameDraft = t.fileName
+                    renameTarget = t
+                }
                 Button("Retranscrire") {
                     let service = TranscriptionService(context: context)
                     Task { await service.retry(t) }
@@ -40,6 +46,20 @@ struct SidebarView: View {
                     try? context.save()
                 }
             }
+        }
+        .alert("Renommer", isPresented: Binding(
+            get: { renameTarget != nil },
+            set: { if !$0 { renameTarget = nil } }
+        )) {
+            TextField("Nom", text: $renameDraft)
+            Button("OK") {
+                if let t = renameTarget, !renameDraft.isEmpty {
+                    t.fileName = renameDraft
+                    try? context.save()
+                }
+                renameTarget = nil
+            }
+            Button("Annuler", role: .cancel) { renameTarget = nil }
         }
     }
 

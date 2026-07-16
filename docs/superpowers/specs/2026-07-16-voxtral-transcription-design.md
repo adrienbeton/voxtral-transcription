@@ -83,9 +83,15 @@ App macOS locale et personnelle : transcription + diarization de fichiers audio 
 - Échec API (clé invalide, fichier trop gros, réseau) → statut `failed` avec message + bouton retry
 - Fichier audio introuvable au replay (déplacé/supprimé) → transcript consultable, player désactivé avec message
 
+## Ajouts v1.1 (demandés après livraison)
+
+- **Édition du transcript** : double-clic sur un segment → champ éditable inline, commit sur Entrée/perte de focus ; `fullText` régénéré depuis les segments (cohérence recherche sidebar). Sans risque pour la sync (basée sur les timestamps).
+- **Relier l'audio** : si le fichier est introuvable, bouton « Relier… » à la place du player → NSOpenPanel → nouveau bookmark + rechargement du player.
+- **Renommer l'item** : menu contextuel sidebar « Renommer… » → édite le nom affiché (`fileName`, utilisé aussi en header d'export).
+- Menu contextuel « Retranscrire » (re-appel API sur le fichier lié).
+
 ## Hors scope (YAGNI)
 
-- Édition du texte du transcript
 - Watch folder / transcription automatique
 - Enregistrement micro
 - Export SRT/VTT, PDF
