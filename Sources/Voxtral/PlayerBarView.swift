@@ -1,8 +1,10 @@
+import AppKit
 import SwiftUI
 import VoxtralCore
 
 struct PlayerBarView: View {
     @Bindable var player: PlayerController
+    @State private var spaceKeyMonitor: Any?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -11,7 +13,6 @@ struct PlayerBarView: View {
                     .font(.title3)
             }
             .buttonStyle(.plain)
-            .keyboardShortcut(.space, modifiers: [])
 
             Text(ExportFormatter.timestamp(player.currentTime))
                 .font(.caption.monospacedDigit())
@@ -34,5 +35,22 @@ struct PlayerBarView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
+        .onAppear {
+            guard spaceKeyMonitor == nil else { return }
+            spaceKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                guard event.keyCode == 49 else { return event }
+                let relevantFlags: NSEvent.ModifierFlags = [.command, .option, .control, .shift]
+                guard event.modifierFlags.intersection(relevantFlags).isEmpty else { return event }
+                guard !(NSApp.keyWindow?.firstResponder is NSTextView) else { return event }
+                player.togglePlay()
+                return nil
+            }
+        }
+        .onDisappear {
+            if let monitor = spaceKeyMonitor {
+                NSEvent.removeMonitor(monitor)
+                spaceKeyMonitor = nil
+            }
+        }
     }
 }
