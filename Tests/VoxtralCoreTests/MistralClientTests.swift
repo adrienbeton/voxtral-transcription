@@ -6,8 +6,8 @@ final class MistralClientTests: XCTestCase {
         let json = """
         {"model":"voxtral-mini-2602","text":"Hello there. Hi.","language":"en",
          "segments":[
-           {"text":"Hello there.","start":0.0,"end":1.8,"speaker":"speaker_0"},
-           {"text":"Hi.","start":2.0,"end":2.6,"speaker":"speaker_1"}
+           {"text":"Hello there.","start":0.0,"end":1.8,"speaker_id":"speaker_0","type":"transcription_segment"},
+           {"text":"Hi.","start":2.0,"end":2.6,"speaker_id":"speaker_1","type":"transcription_segment"}
          ]}
         """.data(using: .utf8)!
         let r = try JSONDecoder().decode(TranscriptionResult.self, from: json)

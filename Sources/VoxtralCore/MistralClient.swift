@@ -7,6 +7,11 @@ public struct TranscriptionResult: Decodable, Sendable {
         public let end: Double
         public let speaker: String?
 
+        enum CodingKeys: String, CodingKey {
+            case text, start, end
+            case speaker = "speaker_id"
+        }
+
         public init(text: String, start: Double, end: Double, speaker: String?) {
             self.text = text; self.start = start; self.end = end; self.speaker = speaker
         }

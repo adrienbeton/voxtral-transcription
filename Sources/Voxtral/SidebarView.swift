@@ -30,6 +30,10 @@ struct SidebarView: View {
             }
             .tag(t)
             .contextMenu {
+                Button("Retranscrire") {
+                    let service = TranscriptionService(context: context)
+                    Task { await service.retry(t) }
+                }
                 Button("Supprimer", role: .destructive) {
                     if selection == t { selection = nil }
                     context.delete(t)
