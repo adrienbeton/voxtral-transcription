@@ -277,7 +277,7 @@ struct SegmentRow: View {
                         .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
                 }
                 if isEditingText {
-                    TextField("", text: $textDraft, axis: .vertical)
+                    TextField("", text: $textDraft)
                         .textFieldStyle(.plain)
                         .focused($textFocused)
                         .onSubmit { commitEdit() }
@@ -297,8 +297,10 @@ struct SegmentRow: View {
         .overlay(RoundedRectangle(cornerRadius: 6)
             .stroke(isFindMatch ? Color.yellow.opacity(0.8) : .clear, lineWidth: 1))
         .contentShape(Rectangle())
-        .onTapGesture(count: 2) { startEditing() }
-        .onTapGesture(count: 1) { if !isEditingText { onSeek() } }
+        .gesture(
+            TapGesture(count: 2).onEnded { startEditing() }
+                .exclusively(before: TapGesture(count: 1).onEnded { if !isEditingText { onSeek() } })
+        )
     }
 }
 
